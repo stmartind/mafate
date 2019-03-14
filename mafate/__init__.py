@@ -1,4 +1,4 @@
-version = '0.3.betafinal'
+version = '0.3'
 
 print('mafate version = '+version)
 
