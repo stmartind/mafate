@@ -10,89 +10,37 @@ It can also require [`iris`](https://scitools.org.uk/iris/docs/latest).
 **Contents**
 
 * `varexpe.py` : definition of classes Expe and Var
-* `utils.py` : provide some useful utilities
+* `utils.py` : main functions
+* `dicts.py` : provide some predefined dictionaries of Expe-s and of Var-s
 * `examples.py` : simple examples to getting started
 
 **Getting started**
+
+`mafate` allows to :
+* easily define a new CliMAF project
+* specify a list of experiments and a list of variables
+* load\_datas corresponding to the specific lists of experiments and of variables in a dictionary of xarray's objects
+* the load\_datas function allows all cdo's operation (with successive steps).
 
 > Define specific CLIMAF projects
 ```python
 from climaf.api import *
 from mafate import *
-
-define_CLIMAF_projects()
 ```
 
-> Define a specific dict of experiments and of vars : use predefined dictionnaries...
+> Define a specific dict of experiments and of vars
 ```python
-dictvars = {}
-dictvars.update(dict_vars_T())
+dictexps = {}
+dictexps.update(dict_exp(Expe(project='CMIP6', model='CNRM-CM6-1', name='historical', ybeg=2000, yend=2014, number=1)))
+dictexps.update(dict_exp(Expe(project='CMIP6', model='CNRM-CM6-1', name='historical', ybeg=2000, yend=2014, number=2)))
 
 dictvars = {}
 dictvars.update(dict_var('tas', 'Amon'))
 ```
-
-> to access to the Var object : dictvars[var.name], e.g. dictvars['tas']
-```python
-print(type(dictvars['tas']))
-print(dictvars['tas'])
+> Load data : you can specify a list of cdo operations : list\_cdops
 ```
+datasets = {}
+datasets = load_datas(dictexps, dictvars, operation=cdogen, list_cdops=['zonmean', 'ymonmean'], verbose=True)
 
-> Define a specific dict of experiments (or use pre-defined dictionnaries)
-```python
-dictexps = {}
-dictexps.update(dict_expes_historical_CNRMCM('CMIP5', 'CNRM-CM5', n_member=3, ybeg=1981, yend=2010, yend_piControl=2349))
-dictexps.update(dict_expes_historical_CNRMCM('CMIP6', 'CNRM-CM6-1', n_member=3, ybeg=1981, yend=2010, yend_piControl=2349))
-dictexps.update(dict_exp(Expe(project='CMIP6', model='CNRM-CM6-1', name='expo-2xCO2', number=1, adds=dict(root='/cnrm/amacs/USERS/stmartin/DATA'), ybeg=1850, yend=1879)))
-```
-
-> to access to the Expe object : dictexps[exp.expid()], e.g. dictexps['CNRM-CM5_historical_r2']
-```python
-print(type(dictexps['CNRM-CM5_historical_r2']))
-print(dictexps['CNRM-CM5_historical_r2'])
-```
-
-> Load data : you can specify a list of cdo operations : list_cdops
-```python
-dict_datasets = load_datas(dictexps, dictvars, list_cdops=['sellonlatbox,0,360,-30,30', 'fldmean'], verbose=True)
-```
-
-> dict_datasets is a python dictionnary of xarray Datasets or iris objects
-
-> dict_datasets['expe.name'], e.g. dict_datasets['historical'] contains all variables/members/models relatives to experiment 'historical'
-```python
-print(dict_datasets['historical'])
-```
-**Examples of use of xarray dataset**
-
-> to select a Dataset specific to an specific experiment
-```python
-ds = extract_from_exp(dict_datasets, dictexps['CNRM-CM5_historical_r2'])
-print(type(ds))
-ds = dict_datasets['piControl'].sel(model='CNRM-CM6-1', member=1)
-print(ds)
-```
-
-> to compute DJF seasonal mean for all variables/members/models
-```python
-ds = dict_datasets['historical'].groupby('time.season').mean(dim='time').sel(season='DJF')
-print(ds)
-```
-
-> to compute ensemble mean for a specific model
-```python
-ds = dict_datasets['historical'].sel(model='CNRM-CM6-1').mean(dim='member')
-print(ds)
-```
-
-> selection by index and selection by labels
-```python
-arr = dict_datasets['piControl'].sel(member=1, model='CNRM-CM5').isel(lon=0, lat=0, time=np.arange(0,10))['tas'].values
-print(arr)
-```
-
-> add a variable in the dataset
-```python
-dict_datasets['historical']['tas_deg'] = dict_datasets['historical']['tas'] - 273.15
-print(dict_datasets['historical']['tas_deg'])
+ds = datasets['historical']
 ```
