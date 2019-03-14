@@ -1,6 +1,6 @@
 class Expe(object):
 
-    def __init__(self, project, model, name, number=1, ybeg=1850, yend=1850, is_Obs=False, expe_control=None, color='k', marker='.', linestyle='-', label=None, adds=dict()):
+    def __init__(self, project, model, name, number=1, ybeg=1850, yend=1850, is_Obs=False, expe_control=None, color='k', marker='.', linestyle='-', label=None, adds=dict(), realization='i1p1*'):    
         self.project = project # CLIMAF project name (pre-existing or user)
         self.model = model
         self.name = name
@@ -14,12 +14,13 @@ class Expe(object):
         self.color = color
         self.marker = marker
         self.linestyle = linestyle
-        if label == None:
-            self.label = self.name
-        else:
-            self.label = label
         self.adds = adds
         self.number = number
+        self.realization=realization
+        if label is not None:
+            self.label = label
+        else:
+            self.label = None 
         
     def __str__(self):
         xstr = '---------------------------------------------------'
