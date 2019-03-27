@@ -73,7 +73,7 @@ def extract_from_exp(datasets, expe):
     if expe is None:
         return None
     else:
-        return datasets[expe.name].sel(model=expe.model, member=expe.number)
+        return datasets[expe.key].sel(model=expe.model, member=expe.number)
 
 
 def compute_anom_from_control(datasets, dictexpes, dictvars):
@@ -89,9 +89,9 @@ def compute_anom_from_control_varexpe(datasets, var, expe):
     '''
     ds_exp = extract_from_exp(datasets, expe)
     ds_ctl = extract_from_exp(datasets, expe.expe_control)
-    if var.name+'_anom' not in datasets[expe.name].variables:
-        datasets[expe.name][var.name+'_anom'] = xr.full_like(datasets[expe.name][var.name], fill_value=None)
-    datasets[expe.name][var.name+'_anom'].loc[dict(model=expe.model, member=expe.number)] = datasets[expe.name][var.name].loc[dict(model=expe.model, member=expe.number)] - ds_ctl[var.name].mean(dim='time')
+    if var.name+'_anom' not in datasets[expe.key].variables:
+        datasets[expe.key][var.name+'_anom'] = xr.full_like(datasets[expe.key][var.name], fill_value=None)
+    datasets[expe.key][var.name+'_anom'].loc[dict(model=expe.model, member=expe.number)] = datasets[expe.key][var.name].loc[dict(model=expe.model, member=expe.number)] - ds_ctl[var.name].mean(dim='time')
 
 
 def harmonizingCoords(ds):
@@ -171,18 +171,14 @@ def convert_climaf_dataset(datasets, var, exp, climaf_ds, operation, list_cdops,
             xds = open_and_expand_dataset(cfile(operation(climaf_ds, list_cdops)), {'model':[exp.model], 'member':np.array([exp.number])}, module, harmonizeCoords, var.varid())
             if verbose:
                 print('Loading data for expid::%s and for varid::%s'%(exp.expid(), var.varid()))
-            if exp.label is not None:
-                key_ = exp.label
-            else:
-                key_ = exp.name
-            if key_ in datasets:
+            if exp.key in datasets:
                 if module == 'xarray':
-                    datasets[key_] = xr.merge([datasets[key_], xds])
+                    datasets[exp.key] = xr.merge([datasets[exp.key], xds])
                 if module == 'iris':
                     import iris
-                    datasets[key_] = (datasets[key_] + xds).merge()
+                    datasets[exp.key] = (datasets[exp.key] + xds).merge()
             else:
-                datasets[key_] = xds
+                datasets[exp.key] = xds
     else:
         print('Data not found for expid::%s and for varid::%s'%(exp.expid(), var.varid()))
 
