@@ -1,8 +1,10 @@
-version = '0.4'
+version = '0.5.beta'
 
 print('mafate version = '+version)
 
-from .utils import cdogen, amoc26, amoc26_hr, define_climaf_project, dict_exp, dict_var, load_datas
+from .operators import amoc26
+
+from .utils import cdogen, define_climaf_project, dict_exp, dict_var, load_datas
 
 from .varexpe import Expe, Variable
 

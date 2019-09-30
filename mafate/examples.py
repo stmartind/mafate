@@ -1,5 +1,6 @@
 from climaf.api import *
 from mafate import *
+import numpy as np
 
 print('----------------------------------------------------------------------------------------------')
 
@@ -172,7 +173,8 @@ dictvars = {}
 var='msftyz'
 dictvars.update(dict_var(var, 'Omon', grid='gn'))
 
-datasets = load_datas(dictexps, dictvars, operation=amoc26, list_cdops=['yearavg'], verbose=True, computeAnom=False, add_rnet=False)
+amoc = lambda dico : amoc26(dico, ['yearavg'])
+datasets = load_datas(dictexps, dictvars, operation=amoc, verbose=True, computeAnom=False, add_rnet=False)
 
 print(datasets)
 print('Mean value of AMOC for period 2015-2020 in ssp245 : %s'%np.mean(datasets['ssp245']['msftyz'].values))
@@ -221,5 +223,49 @@ print('-------------------------------------------------------------------------
 #   - computeAnom = True : add 'var_anom' computed as anomalies against the temporal mean of expe.expe_control
 #   - add_rnet = True : add 'rnet' variable in the dataset, computed as : rsdt - rsut - rlut
 #   - harmonizeCoords = True : rename typical coords (longitude, latitude, levels) in (lon, lat, plev)
+
+
+# -- Example to re-use CliMAF facilities (e.g. explore) by using toggle ignore_data_not_found (default : False)
+dictexps = {}
+dictexps.update(dict_exp(Expe(project='CMIP6', model='CNRM-CM6-1', name='piClim-control', adds=dict(root='./datas'), ybeg=1850, yend=1851)))
+dictexps.update(dict_exp(Expe(project='CMIP6', model='CNRM-CM6-1', name='piClim-4xCO2', adds=dict(root='./datas'), ybeg=1850, yend=1851)))
+
+datasets = {}
+datasets = load_datas(dictexps, dictvars, operation=cdogen, list_cdops=['yearavg'], ignore_data_not_found=True)
+# datasets is a dictionary of xarray's object and unkwown piClim-4xCO2 experiment is not present
+print('piClim-control' in datasets, 'piClim-4xCO2' in datasets)
+
+datasets = {}
+datasets = load_datas(dictexps, dictvars, operation=cdogen, list_cdops=['yearavg'])
+# datasets is a Python dictionary with CliMAF request for unkwown piClim-4xCO2 experiment
+print(datasets['experiment'])
+
+print('----------------------------------------------------------------------------------------------')
+
+# -- ??? Example to use specific period of piControl by using toggle keep_attrs (default : False)
+
+dictexps = {}
+eCTL = Expe(project='CMIP6', model='CNRM-CM6-1', label='piControl', name='piControl', ybeg=1850, yend=2349)
+dictexps.update(dict_exp(eCTL))
+dictexps.update(dict_exp(Expe(project='CMIP6', model='CNRM-CM6-1', name='historical', number=1, ybeg=2000, yend=2004, expe_control=eCTL)))
+dictexps.update(dict_exp(Expe(project='CMIP6', model='CNRM-CM6-1', name='historical', number=4, ybeg=2000, yend=2004, expe_control=eCTL)))
+
+datasets = {}
+datasets = load_datas(dictexps, dictvars, operation=cdogen, list_cdops=['fldmean', 'yearavg'], keep_attrs=True, computeAnom=True)
+
+tas_hist1_2000 = datasets['historical']['tas'].sel(member=1).isel(model=0, time=0, lon=0, lat=0).values
+tas_piC_mean = datasets['piControl']['tas'].isel(member=0, model=0, time=np.arange(0, 499), lon=0, lat=0).mean(dim='time').values
+anom_tas_hist1_2000 = tas_hist1_2000 - tas_piC_mean
+tas_anom_hist1_2000 = datasets['historical']['tas_anom'].sel(member=1).isel(model=0, time=0, lon=0, lat=0).values
+print(tas_hist1_2000, tas_piC_mean, anom_tas_hist1_2000, tas_anom_hist1_2000)
+
+offset = 110 # hist_r4 (init date piControl : 19600101)
+tas_hist4_2000 = datasets['historical']['tas'].sel(member=4).isel(model=0, time=0, lon=0, lat=0).values
+tas_piC_mean = datasets['piControl']['tas'].isel(member=0, model=0, time=np.arange(offset+150, offset+155), lon=0, lat=0).mean(dim='time').values
+anom_tas_hist4_2000 = tas_hist4_2000 - tas_piC_mean
+tas_anom_hist4_2000 = datasets['historical']['tas_anom'].sel(member=4).isel(model=0, time=0, lon=0, lat=0).values
+print(tas_hist4_2000, tas_piC_mean, anom_tas_hist4_2000, tas_anom_hist4_2000)
+
+print('----------------------------------------------------------------------------------------------')
 
 exit()

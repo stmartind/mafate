@@ -2,6 +2,7 @@ from climaf.api import *
 import xarray as xr
 import numpy as np
 from .varexpe import Expe, Variable
+import datetime, string
 
 
 def cdogen(x, list_cdops):
@@ -14,22 +15,6 @@ def cdogen(x, list_cdops):
         for op in list_cdops:
             x = ccdo(x, operator=op)
         return x
-
-
-def amoc26(x, list_cdops):
-    '''
-    Compute AMOC at 26N (standard resolution)
-    '''
-    x = ccdo(slice(slice(x, dim='j-mean', min=190, max=190), dim='basin', min=2, max=2), operator='vertmax')
-    return cdogen(x, list_cdops)
-
-
-def amoc26_hr(x, list_cdops):
-    '''
-    Compute AMOC at 26N (high resolution)
-    '''
-    x = ccdo(slice(slice(x, dim='j-mean', min=636, max=636), dim='basin', min=2, max=2), operator='vertmax')
-    return cdogen(x, list_cdops)
 
 
 def define_climaf_project(name, facets=['model', 'experiment', 'member', 'realization', 'variable', 'table', 'gridtype'], root_dirs=[], file_patterns=[]):
@@ -52,7 +37,7 @@ def dict_exp(my_expe):
         key_ = my_expe.label
     else:
         key_ = my_expe.expid()
-    dict_expe[key_] = my_expe    
+    dict_expe[key_] = my_expe
     return dict_expe
 
 
@@ -66,33 +51,79 @@ def dict_var(name, table='*', grid='gr'):
     return dict_vars
 
 
-def extract_from_exp(datasets, expe):
+def extract_from_exp(datasets, expe, member=None ):
     '''
     Get dataset from a single expe
     '''
     if expe is None:
         return None
     else:
-        return datasets[expe.key].sel(model=expe.model, member=expe.number)
+        if member is None : member = expe.number
+        return datasets[expe.key].sel(model=expe.model, member=member)
 
 
-def compute_anom_from_control(datasets, dictexpes, dictvars):
+def get_time(dataset, time_dims=['time_counter', 'time'], attrs='year'):
+    '''
+    '''
+    for dim_name in time_dims:
+        if dim_name in dataset.dims:
+            break 
+    try:
+        if attrs == 'year':
+            data_x = dataset[dim_name].dt.year
+        else:
+            print 'to be coded'
+    except:
+        if attrs == 'year':
+            data_x = list(elt.year for elt in dataset[dim_name].values)
+        else:
+            print 'to be coded'
+    return data_x
+
+
+def compute_anom_from_control(datasets, dictexpes, dictvars, dimtim):
     '''
     '''
     for var in list(dictvars.values()):
         for exp in list(dictexpes.values()):
-            compute_anom_from_control_varexpe(datasets, var, exp)
+            compute_anom_from_control_varexpe(datasets, var, exp, dimtim)
 
 
-def compute_anom_from_control_varexpe(datasets, var, expe):
+def compute_anom_from_control_varexpe(datasets, var, expe, dimtim):
     '''
+    '''
+    if expe.number > 1 and expe.expe_control.label == 'piControl' :
+        # Cas specifique ou on prend une periode differente du piControl = qui correspond a celle de l'historique
+        compute_anom_member_from_picontrol_varexpe(datasets, var, expe)
+    else:
+        ds_exp = extract_from_exp(datasets, expe)
+        ds_ctl = extract_from_exp(datasets, expe.expe_control)
+        if var.name+'_anom' not in datasets[expe.key].variables:
+            datasets[expe.key][var.name+'_anom'] = xr.full_like(datasets[expe.key][var.name], fill_value=None)
+        datasets[expe.key][var.name+'_anom'].loc[dict(model=expe.model, member=expe.number)] = datasets[expe.key][var.name].loc[dict(model=expe.model, member=expe.number)] - ds_ctl[var.name].mean(dim=dimtim)
+
+
+def compute_anom_member_from_picontrol_varexpe(datasets, var, expe):
+    ''' 
+    Cas specifique ou le control varie par sa date de debut pas par son numero de membre...
     '''
     ds_exp = extract_from_exp(datasets, expe)
-    ds_ctl = extract_from_exp(datasets, expe.expe_control)
+    attrs = datasets[expe.key].attrs
+    parent_time_units = attrs['parent_time_units'].split()
+    time_unit_ctl = datetime.datetime.strptime(string.join(parent_time_units[2:4]),'%Y-%m-%d %X')
+    time_start_expe_delta_in_ctl = datetime.timedelta(float(attrs['branch_time_in_parent'+'_'+expe.expid()]))
+    time_start_expe_in_ctl = time_unit_ctl + time_start_expe_delta_in_ctl
+    exp_time = get_time(datasets[expe.key])
+    pi_End_year = time_start_expe_in_ctl.year + exp_time[-1] - 1850
+    pi_Start_sel = time_start_expe_in_ctl.year + exp_time[0] - 1850
+    ds_ctl = extract_from_exp(datasets, expe.expe_control, 1)
+    Ctrl = ds_ctl[var.name].sel(time=slice(datetime.datetime(pi_Start_sel,1,1), datetime.datetime(pi_End_year,12,31)), drop=True)
+    Data = datasets[expe.key][var.name].sel(model=expe.model, member=expe.number)
+    Data, Ctrl = xr.align(Data, Ctrl, join='left')
     if var.name+'_anom' not in datasets[expe.key].variables:
         datasets[expe.key][var.name+'_anom'] = xr.full_like(datasets[expe.key][var.name], fill_value=None)
-    datasets[expe.key][var.name+'_anom'].loc[dict(model=expe.model, member=expe.number)] = datasets[expe.key][var.name].loc[dict(model=expe.model, member=expe.number)] - ds_ctl[var.name].mean(dim='time')
-
+    datasets[expe.key][var.name+'_anom'].loc[dict(model=expe.model, member=expe.number)] = Data - Ctrl.mean(dim='time')
+    
 
 def harmonizingCoords(ds):
     '''
@@ -115,6 +146,19 @@ def renameCoords(ds, liste, name):
         if xname in ds:
             ds = ds.rename({xname:name})
     return ds
+
+
+def updated_attrs(attrs_org, ds_src, key_attrs, list_attrs=['branch_time_in_parent']):
+    '''
+    Returns a updated value of the 'attributes' dict, attrs_org
+    Get values of list_attrs in ds_src
+    '''
+    attrs_new = attrs_org
+    attrs_src = ds_src.attrs
+    for att_ in list_attrs:
+        if att_ in attrs_src.keys():
+            attrs_new[att_+'_'+key_attrs] = attrs_src[att_]
+    return attrs_new
 
 
 def open_and_expand_dataset(my_file, dict_add_dims, module, harmonizeCoords, var=None):
@@ -142,13 +186,14 @@ def open_and_expand_dataset(my_file, dict_add_dims, module, harmonizeCoords, var
     return xds
 
 
-def convert_climaf_dataset(datasets, var, exp, climaf_ds, operation, list_cdops, dir_target, module, writeFiles, harmonizeCoords, verbose):
+def convert_climaf_dataset(datasets, var, exp, climaf_dico, operation, list_cdops, dir_target, module, writeFiles, harmonizeCoords, verbose, ignore_data_not_found, keep_attrs):
     '''
     Auxiliary function to convert a CliMAF dataset/object to :
         - either a target file
         - either a xarray dataset or a iris object
     '''
     exp_id = exp.expid()
+    climaf_ds = ds(**climaf_dico)
     if climaf_ds is not None:
         if verbose:
             if hasattr(climaf_ds, 'listfiles'):
@@ -159,31 +204,56 @@ def convert_climaf_dataset(datasets, var, exp, climaf_ds, operation, list_cdops,
             if operation == cdogen:
                 suffix = '.nc'
                 if list_cdops is None:
-                    cfile(climaf_ds, target=dir_target+'/'+exp_id+'_'+var.varid()+suffix)
+                    try : cfile(climaf_ds, target=dir_target+'/'+exp_id+'_'+var.varid()+suffix)
+                    except : 
+                        print "CliMAF could not find the expected data, use explore fonction on the returned dictionary"
+                        return climaf_dico
                 else:
                     for cdop in list_cdops:
                         suffix = '.' + cdop + suffix
-                    cfile(operation(climaf_ds, list_cdops), target=dir_target+'/'+exp_id+'_'+var.varid()+suffix)
+                    try : cfile(operation(climaf_ds, list_cdops), target=dir_target+'/'+exp_id+'_'+var.varid()+suffix)
+                    except : 
+                        print "CliMAF could not find the expected data, use explore fonction on the returned dictionary"
+                        return climaf_dico
             else:
                 print(operation, ' not known...')
                 return
         else:
-            xds = open_and_expand_dataset(cfile(operation(climaf_ds, list_cdops)), {'model':[exp.model], 'member':np.array([exp.number])}, module, harmonizeCoords, var.varid())
+            if operation == cdogen :
+               climaf_ds = operation(climaf_ds, list_cdops)
+            else :
+               climaf_ds = operation(climaf_dico)
+            try : climaf_interpret = cfile(climaf_ds)
+            except :
+              if ignore_data_not_found :
+                  print "CliMAF could not find the data for ",climaf_dico
+                  return
+              else :
+                  print "CliMAF could not find the expected data, use explore fonction on the returned dictionary"
+                  return climaf_dico
+            xds = open_and_expand_dataset(climaf_interpret, {'model':[exp.model], 'member':np.array([exp.number])}, module, harmonizeCoords, var.varid())
             if verbose:
                 print('Loading data for expid::%s and for varid::%s'%(exp.expid(), var.varid()))
             if exp.key in datasets:
                 if module == 'xarray':
+                    if keep_attrs:
+                        attrs = datasets[exp.key].attrs
                     datasets[exp.key] = xr.merge([datasets[exp.key], xds])
+                    if keep_attrs:
+                        datasets[exp.key].attrs = updated_attrs(attrs, xds, exp.expid())
                 if module == 'iris':
                     import iris
                     datasets[exp.key] = (datasets[exp.key] + xds).merge()
             else:
                 datasets[exp.key] = xds
+                if keep_attrs:
+                    datasets[exp.key].attrs = updated_attrs(datasets[exp.key].attrs, xds, exp.expid())
     else:
         print('Data not found for expid::%s and for varid::%s'%(exp.expid(), var.varid()))
 
 
-def load_datas(dictexpes, dictvars, operation=cdogen, list_cdops=None, dir_target='.', module='xarray', writeFiles=False, computeAnom=False, add_rnet=True, harmonizeCoords=False, verbose=False):
+def load_datas(dictexpes, dictvars, operation=cdogen, list_cdops=None, dir_target='.', module='xarray', writeFiles=False, \
+        computeAnom=False, add_rnet=True, harmonizeCoords=False, verbose=False, ignore_data_not_found=False, keep_attrs=False, dimtim='time'):
     '''
     Get data from : 
     - a specific dict of Expe-s : dictexpes
@@ -200,12 +270,15 @@ def load_datas(dictexpes, dictvars, operation=cdogen, list_cdops=None, dir_targe
     for var in list(dictvars.values()):
         for exp in list(dictexpes.values()):
             m = exp.number
-            f = ds(project=exp.project, variable=var.name, table=var.table, grid=var.grid, gridtype=var.grid, model=exp.model, experiment=exp.name, realization='r'+str(m)+exp.realization, member=m, period=exp.period(), **exp.adds)
-            convert_climaf_dataset(my_datasets, var, exp, f, operation, list_cdops, dir_target, module, writeFiles, harmonizeCoords, verbose)
+            dicof = dict(project=exp.project, variable=var.name, table=var.table, grid=var.grid, gridtype=var.grid, model=exp.model, experiment=exp.name, \
+                    realization='r'+str(m)+exp.realization, member=m, period=exp.period(), **exp.adds)
+            dico = convert_climaf_dataset(my_datasets, var, exp, dicof, operation, list_cdops, dir_target, module, writeFiles, harmonizeCoords, verbose, ignore_data_not_found, keep_attrs)
+            if dico is not None:
+                return dico
     if writeFiles:
         return
     if computeAnom:
-        compute_anom_from_control(my_datasets, dictexpes, dictvars)
+        compute_anom_from_control(my_datasets, dictexpes, dictvars, dimtim)
     if add_rnet:
         for e_ in list(my_datasets.keys()):
             ds_ = my_datasets[e_]

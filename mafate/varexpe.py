@@ -36,7 +36,10 @@ class Expe(object):
         return xstr
 
     def period(self):
-        return str(self.ybeg)+'-'+str(self.yend)
+        if self.ybeg == 'fx':
+            return 'fx'
+        else:
+            return str(self.ybeg)+'-'+str(self.yend)
 
     def expid(self):
         if self.is_Obs:
