@@ -3,6 +3,7 @@ import xarray as xr
 import numpy as np
 from .varexpe import Expe, Variable
 import datetime, string
+import sys
 
 
 def cdogen(x, list_cdops):
@@ -81,20 +82,24 @@ def get_time(dataset, time_dims=['time_counter', 'time'], attrs='year'):
     return data_x
 
 
-def compute_anom_from_control(datasets, dictexpes, dictvars, dimtim):
+def compute_anom_from_control(datasets, dictexpes, dictvars, dimtim, computeAnom, ignore_data_not_found):
     '''
     '''
     for var in list(dictvars.values()):
         for exp in list(dictexpes.values()):
-            compute_anom_from_control_varexpe(datasets, var, exp, dimtim)
+            compute_anom_from_control_varexpe(datasets, var, exp, dimtim, computeAnom, ignore_data_not_found)
 
 
-def compute_anom_from_control_varexpe(datasets, var, expe, dimtim):
+def compute_anom_from_control_varexpe(datasets, var, expe, dimtim, computeAnom, ignore_data_not_found):
     '''
     '''
-    if expe.number > 1 and expe.expe_control.name == 'piControl' :
-        # Cas specifique ou on prend une periode differente du piControl = qui correspond a celle de l'historique
-        compute_anom_member_from_picontrol_varexpe(datasets, var, expe)
+    if computeAnom == 'respective' and expe.expe_control is not expe :
+        print expe.name, expe.expe_control.name
+        if expe.expe_control.name == 'piControl' :
+          # Cas specifique ou on prend une periode differente du piControl = qui correspond a celle de l'historique
+          compute_anom_member_from_picontrol_varexpe(datasets, var, expe, ignore_data_not_found)
+        else :
+          print "When using computeAnom == 'respective' you have to indicate a expe_control.name == 'piControl'"
     else:
         ds_exp = extract_from_exp(datasets, expe)
         ds_ctl = extract_from_exp(datasets, expe.expe_control)
@@ -103,7 +108,7 @@ def compute_anom_from_control_varexpe(datasets, var, expe, dimtim):
         datasets[expe.key][var.name+'_anom'].loc[dict(model=expe.model, member=expe.number)] = datasets[expe.key][var.name].loc[dict(model=expe.model, member=expe.number)] - ds_ctl[var.name].mean(dim=dimtim)
 
 
-def compute_anom_member_from_picontrol_varexpe(datasets, var, expe):
+def compute_anom_member_from_picontrol_varexpe(datasets, var, expe, ignore_data_not_found):
     ''' 
     Cas specifique ou le control varie par sa date de debut pas par son numero de membre...
     '''
@@ -117,9 +122,16 @@ def compute_anom_member_from_picontrol_varexpe(datasets, var, expe):
     pi_End_year = time_start_expe_in_ctl.year + exp_time[-1] - 1850
     pi_Start_sel = time_start_expe_in_ctl.year + exp_time[0] - 1850
     ds_ctl = extract_from_exp(datasets, expe.expe_control, 1)
+    print "member : ",expe.expid()
+    print "Ctrl shape init : ",ds_ctl[var.name].shape
+    print "Ctrl years : start in piContrl",time_start_expe_in_ctl.year,pi_Start_sel.values,pi_End_year.values
     Ctrl = ds_ctl[var.name].sel(time=slice(datetime.datetime(pi_Start_sel,1,1), datetime.datetime(pi_End_year,12,31)), drop=True)
+    print "Ctrl shape select :",Ctrl.shape
     Data = datasets[expe.key][var.name].sel(model=expe.model, member=expe.number)
-    Data, Ctrl = xr.align(Data, Ctrl, join='left')
+    try : Data, Ctrl = xr.align(Data, Ctrl, join='left')
+    except : 
+        if ignore_data_not_found : return
+        else : sys.exit("Ctrl read period does not encompass the experiment %s corresponding period in piControl"%expe.expid())
     if var.name+'_anom' not in datasets[expe.key].variables:
         datasets[expe.key][var.name+'_anom'] = xr.full_like(datasets[expe.key][var.name], fill_value=None)
     datasets[expe.key][var.name+'_anom'].loc[dict(model=expe.model, member=expe.number)] = Data - Ctrl.mean(dim='time')
@@ -253,7 +265,7 @@ def convert_climaf_dataset(datasets, var, exp, climaf_dico, operation, list_cdop
 
 
 def load_datas(dictexpes, dictvars, operation=cdogen, list_cdops=None, dir_target='.', module='xarray', writeFiles=False, \
-        computeAnom=False, add_rnet=True, harmonizeCoords=False, verbose=False, ignore_data_not_found=False, keep_attrs=False, dimtim='time'):
+        computeAnom=None, add_rnet=True, harmonizeCoords=False, verbose=False, ignore_data_not_found=False, keep_attrs=False, dimtim='time'):
     '''
     Get data from : 
     - a specific dict of Expe-s : dictexpes
@@ -265,6 +277,9 @@ def load_datas(dictexpes, dictvars, operation=cdogen, list_cdops=None, dir_targe
 
     > Return a dictionary of xarray's Dataset or iris's object indexed by the experiment name:
         All the models/members/variables are grouped in a single Dataset for each experiment
+
+        computeAnom = 'all' : compute the anomaly to the period of ref experiment indicated, ie the same reference period for all members 
+        computeAnom = 'respective' : compute the anomaly to the respective period in the ref experiment, ie period depends members start date in parent 
     '''
     my_datasets = {}
     for var in list(dictvars.values()):
@@ -277,14 +292,14 @@ def load_datas(dictexpes, dictvars, operation=cdogen, list_cdops=None, dir_targe
                 return dico
     if writeFiles:
         return
-    if computeAnom:
-        compute_anom_from_control(my_datasets, dictexpes, dictvars, dimtim)
+    if computeAnom is not None :
+        compute_anom_from_control(my_datasets, dictexpes, dictvars, dimtim, computeAnom, ignore_data_not_found)
     if add_rnet:
         for e_ in list(my_datasets.keys()):
             ds_ = my_datasets[e_]
             # -- add new var 'rnet' from rsdt, rsut and rlut values
             if 'rsdt' in ds_.variables:
                 ds_['rnet'] = ds_['rsdt'] - ds_['rsut'] - ds_['rlut']
-                if computeAnom:
+                if computeAnom is not None:
                     ds_['rnet_anom'] = ds_['rsdt_anom'] - ds_['rsut_anom'] - ds_['rlut_anom']
     return my_datasets
