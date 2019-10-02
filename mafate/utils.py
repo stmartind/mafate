@@ -92,7 +92,7 @@ def compute_anom_from_control(datasets, dictexpes, dictvars, dimtim):
 def compute_anom_from_control_varexpe(datasets, var, expe, dimtim):
     '''
     '''
-    if expe.number > 1 and expe.expe_control.label == 'piControl' :
+    if expe.number > 1 and expe.expe_control.name == 'piControl' :
         # Cas specifique ou on prend une periode differente du piControl = qui correspond a celle de l'historique
         compute_anom_member_from_picontrol_varexpe(datasets, var, expe)
     else:
@@ -111,7 +111,7 @@ def compute_anom_member_from_picontrol_varexpe(datasets, var, expe):
     attrs = datasets[expe.key].attrs
     parent_time_units = attrs['parent_time_units'].split()
     time_unit_ctl = datetime.datetime.strptime(string.join(parent_time_units[2:4]),'%Y-%m-%d %X')
-    time_start_expe_delta_in_ctl = datetime.timedelta(float(attrs['branch_time_in_parent'+'_'+expe.expid()]))
+    time_start_expe_delta_in_ctl = datetime.timedelta(float(attrs['branch_time_in_parent_%s'%expe.expid()]))
     time_start_expe_in_ctl = time_unit_ctl + time_start_expe_delta_in_ctl
     exp_time = get_time(datasets[expe.key])
     pi_End_year = time_start_expe_in_ctl.year + exp_time[-1] - 1850

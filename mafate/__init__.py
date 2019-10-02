@@ -4,7 +4,7 @@ print('mafate version = '+version)
 
 from .operators import amoc26
 
-from .utils import cdogen, define_climaf_project, dict_exp, dict_var, load_datas
+from .utils import cdogen, define_climaf_project, dict_exp, dict_var, load_datas, get_time
 
 from .varexpe import Expe, Variable
 
