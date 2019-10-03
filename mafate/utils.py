@@ -105,7 +105,11 @@ def compute_anom_from_control_varexpe(datasets, var, expe, dimtim, computeAnom, 
         ds_ctl = extract_from_exp(datasets, expe.expe_control)
         if var.name+'_anom' not in datasets[expe.key].variables:
             datasets[expe.key][var.name+'_anom'] = xr.full_like(datasets[expe.key][var.name], fill_value=None)
-        datasets[expe.key][var.name+'_anom'].loc[dict(model=expe.model, member=expe.number)] = datasets[expe.key][var.name].loc[dict(model=expe.model, member=expe.number)] - ds_ctl[var.name].mean(dim=dimtim)
+        time_name =None
+        for name in dimtim :
+            if name in ds_ctl[var.name].dims :
+                time_name = name
+        datasets[expe.key][var.name+'_anom'].loc[dict(model=expe.model, member=expe.number)] = datasets[expe.key][var.name].loc[dict(model=expe.model, member=expe.number)] - ds_ctl[var.name].mean(dim=time_name)
 
 
 def compute_anom_member_from_picontrol_varexpe(datasets, var, expe, ignore_data_not_found):
@@ -265,7 +269,7 @@ def convert_climaf_dataset(datasets, var, exp, climaf_dico, operation, list_cdop
 
 
 def load_datas(dictexpes, dictvars, operation=cdogen, list_cdops=None, dir_target='.', module='xarray', writeFiles=False, \
-        computeAnom=None, add_rnet=True, harmonizeCoords=False, verbose=False, ignore_data_not_found=False, keep_attrs=False, dimtim='time'):
+        computeAnom=None, add_rnet=True, harmonizeCoords=False, verbose=False, ignore_data_not_found=False, keep_attrs=False, dimtim=['time','time_counter']):
     '''
     Get data from : 
     - a specific dict of Expe-s : dictexpes
