@@ -69,12 +69,12 @@ def get_time(dataset, time_dims=['time_counter', 'time'], attrs='year'):
         if attrs == 'year':
             data_x = dataset[dim_name].dt.year
         else:
-            print 'to be coded'
+            print('to be coded later...')
     except:
         if attrs == 'year':
             data_x = list(elt.year for elt in dataset[dim_name].values)
         else:
-            print 'to be coded'
+            print('to be coded later...')
     return data_x
 
 
@@ -85,27 +85,18 @@ def compute_anom_from_control(datasets, dictexpes, dictvars, dimtim, computeAnom
         for exp in list(dictexpes.values()):
             compute_anom_from_control_varexpe(datasets, var, exp, dimtim, computeAnom, ignore_data_not_found)
 
-
-def compute_anom_from_control_varexpe(datasets, var, expe, dimtim, computeAnom, ignore_data_not_found):
+def compute_anom_from_control_varexpe_allperiod(datasets, var, expe, dimtim):
     '''
     '''
-    if computeAnom == 'respective' and expe.expe_control is not expe :
-        print expe.name, expe.expe_control.name
-        if expe.expe_control.name == 'piControl' :
-          # Cas specifique ou on prend une periode differente du piControl = qui correspond a celle de l'historique
-          compute_anom_member_from_picontrol_varexpe(datasets, var, expe, ignore_data_not_found)
-        else :
-          print "When using computeAnom == 'respective' you have to indicate a expe_control.name == 'piControl'"
-    else:
-        ds_exp = extract_from_exp(datasets, expe)
-        ds_ctl = extract_from_exp(datasets, expe.expe_control)
-        if var.name+'_anom' not in datasets[expe.name].variables:
-            datasets[expe.name][var.name+'_anom'] = xr.full_like(datasets[expe.name][var.name], fill_value=None)
-        time_name =None
-        for name in dimtim :
-            if name in ds_ctl[var.name].dims :
-                time_name = name
-        datasets[expe.name][var.name+'_anom'].loc[dict(model=expe.model, member=expe.number)] = datasets[expe.name][var.name].loc[dict(model=expe.model, member=expe.number)] - ds_ctl[var.name].mean(dim=time_name)
+    ds_exp = extract_from_exp(datasets, expe)
+    ds_ctl = extract_from_exp(datasets, expe.expe_control)
+    if var.name+'_anom' not in datasets[expe.name].variables:
+        datasets[expe.name][var.name+'_anom'] = xr.full_like(datasets[expe.name][var.name], fill_value=None)
+    time_name = None
+    for name in dimtim:
+        if name in ds_ctl[var.name].dims:
+            time_name = name
+    datasets[expe.name][var.name+'_anom'].loc[dict(model=expe.model, member=expe.number)] = datasets[expe.name][var.name].loc[dict(model=expe.model, member=expe.number)] - ds_ctl[var.name].mean(dim=time_name)
 
 
 def compute_anom_member_from_picontrol_varexpe(datasets, var, expe, ignore_data_not_found):
@@ -122,11 +113,7 @@ def compute_anom_member_from_picontrol_varexpe(datasets, var, expe, ignore_data_
     pi_End_year = time_start_expe_in_ctl.year + exp_time[-1] - 1850
     pi_Start_sel = time_start_expe_in_ctl.year + exp_time[0] - 1850
     ds_ctl = extract_from_exp(datasets, expe.expe_control, 1)
-    print "member : ",expe.expid()
-    print "Ctrl shape init : ",ds_ctl[var.name].shape
-    print "Ctrl years : start in piContrl",time_start_expe_in_ctl.year,pi_Start_sel.values,pi_End_year.values
     Ctrl = ds_ctl[var.name].sel(time=slice(datetime.datetime(pi_Start_sel,1,1), datetime.datetime(pi_End_year,12,31)), drop=True)
-    print "Ctrl shape select :",Ctrl.shape
     Data = datasets[expe.name][var.name].sel(model=expe.model, member=expe.number)
     try : Data, Ctrl = xr.align(Data, Ctrl, join='left')
     except : 
@@ -135,7 +122,25 @@ def compute_anom_member_from_picontrol_varexpe(datasets, var, expe, ignore_data_
     if var.name+'_anom' not in datasets[expe.name].variables:
         datasets[expe.name][var.name+'_anom'] = xr.full_like(datasets[expe.name][var.name], fill_value=None)
     datasets[expe.name][var.name+'_anom'].loc[dict(model=expe.model, member=expe.number)] = Data - Ctrl.mean(dim='time')
-    
+
+
+def compute_anom_from_control_varexpe(datasets, var, expe, dimtim, computeAnom, ignore_data_not_found):
+    '''
+    '''
+    if computeAnom == 'all':
+        compute_anom_from_control_varexpe_allperiod(datasets, var, expe, dimtim)
+    elif computeAnom == 'respective':
+        if expe.expe_control is not expe:
+            if expe.expe_control.name == 'piControl':
+                # Cas specifique ou on prend une periode differente du piControl = qui correspond a celle de l'historique
+                compute_anom_member_from_picontrol_varexpe(datasets, var, expe, ignore_data_not_found)
+            else:
+                print("When using computeAnom == 'respective' you have to indicate a expe_control.name == 'piControl'")
+        else:
+            compute_anom_from_control_varexpe_allperiod(datasets, var, expe, dimtim)
+    else:
+        print('computeAnom not known')
+
 
 def harmonizingCoords(ds):
     '''
@@ -154,6 +159,8 @@ def harmonizingCoords(ds):
 
 
 def renameCoords(ds, liste, name):
+    '''
+    '''
     for xname in liste:
         if xname in ds:
             ds = ds.rename({xname:name})
@@ -218,14 +225,14 @@ def convert_climaf_dataset(datasets, var, exp, climaf_dico, operation, list_cdop
                 if list_cdops is None:
                     try : cfile(climaf_ds, target=dir_target+'/'+exp_id+'_'+var.varid()+suffix)
                     except : 
-                        print "CliMAF could not find the expected data, use explore fonction on the returned dictionary"
+                        print('CliMAF could not find the expected data, use explore fonction on the returned dictionary')
                         return climaf_dico
                 else:
                     for cdop in list_cdops:
                         suffix = '.' + cdop + suffix
                     try : cfile(operation(climaf_ds, list_cdops), target=dir_target+'/'+exp_id+'_'+var.varid()+suffix)
                     except : 
-                        print "CliMAF could not find the expected data, use explore fonction on the returned dictionary"
+                        print('CliMAF could not find the expected data, use explore fonction on the returned dictionary')
                         return climaf_dico
             else:
                 print(operation, ' not known...')
@@ -238,10 +245,10 @@ def convert_climaf_dataset(datasets, var, exp, climaf_dico, operation, list_cdop
             try : climaf_interpret = cfile(climaf_ds)
             except :
               if ignore_data_not_found :
-                  print "CliMAF could not find the data for ",climaf_dico
+                  print('CliMAF could not find the data for %s'%climaf_dico)
                   return
               else :
-                  print "CliMAF could not find the expected data, use explore fonction on the returned dictionary"
+                  print('CliMAF could not find the expected data, use explore fonction on the returned dictionary')
                   return climaf_dico
             xds = open_and_expand_dataset(climaf_interpret, {'model':[exp.model], 'member':np.array([exp.number])}, module, harmonizeCoords, var.varid())
             if verbose:
