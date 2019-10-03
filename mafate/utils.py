@@ -34,11 +34,7 @@ def dict_exp(my_expe):
     Define a dict of one single Expe my_expe
     '''
     dict_expe = {}
-    if my_expe.label is not None:
-        key_ = my_expe.label
-    else:
-        key_ = my_expe.expid()
-    dict_expe[key_] = my_expe
+    dict_expe[my_expe.expid()] = my_expe
     return dict_expe
 
 
@@ -60,7 +56,7 @@ def extract_from_exp(datasets, expe, member=None ):
         return None
     else:
         if member is None : member = expe.number
-        return datasets[expe.key].sel(model=expe.model, member=member)
+        return datasets[expe.name].sel(model=expe.model, member=member)
 
 
 def get_time(dataset, time_dims=['time_counter', 'time'], attrs='year'):
@@ -103,13 +99,13 @@ def compute_anom_from_control_varexpe(datasets, var, expe, dimtim, computeAnom, 
     else:
         ds_exp = extract_from_exp(datasets, expe)
         ds_ctl = extract_from_exp(datasets, expe.expe_control)
-        if var.name+'_anom' not in datasets[expe.key].variables:
-            datasets[expe.key][var.name+'_anom'] = xr.full_like(datasets[expe.key][var.name], fill_value=None)
+        if var.name+'_anom' not in datasets[expe.name].variables:
+            datasets[expe.name][var.name+'_anom'] = xr.full_like(datasets[expe.name][var.name], fill_value=None)
         time_name =None
         for name in dimtim :
             if name in ds_ctl[var.name].dims :
                 time_name = name
-        datasets[expe.key][var.name+'_anom'].loc[dict(model=expe.model, member=expe.number)] = datasets[expe.key][var.name].loc[dict(model=expe.model, member=expe.number)] - ds_ctl[var.name].mean(dim=time_name)
+        datasets[expe.name][var.name+'_anom'].loc[dict(model=expe.model, member=expe.number)] = datasets[expe.name][var.name].loc[dict(model=expe.model, member=expe.number)] - ds_ctl[var.name].mean(dim=time_name)
 
 
 def compute_anom_member_from_picontrol_varexpe(datasets, var, expe, ignore_data_not_found):
@@ -117,12 +113,12 @@ def compute_anom_member_from_picontrol_varexpe(datasets, var, expe, ignore_data_
     Cas specifique ou le control varie par sa date de debut pas par son numero de membre...
     '''
     ds_exp = extract_from_exp(datasets, expe)
-    attrs = datasets[expe.key].attrs
+    attrs = datasets[expe.name].attrs
     parent_time_units = attrs['parent_time_units'].split()
     time_unit_ctl = datetime.datetime.strptime(string.join(parent_time_units[2:4]),'%Y-%m-%d %X')
     time_start_expe_delta_in_ctl = datetime.timedelta(float(attrs['branch_time_in_parent_%s'%expe.expid()]))
     time_start_expe_in_ctl = time_unit_ctl + time_start_expe_delta_in_ctl
-    exp_time = get_time(datasets[expe.key])
+    exp_time = get_time(datasets[expe.name])
     pi_End_year = time_start_expe_in_ctl.year + exp_time[-1] - 1850
     pi_Start_sel = time_start_expe_in_ctl.year + exp_time[0] - 1850
     ds_ctl = extract_from_exp(datasets, expe.expe_control, 1)
@@ -131,14 +127,14 @@ def compute_anom_member_from_picontrol_varexpe(datasets, var, expe, ignore_data_
     print "Ctrl years : start in piContrl",time_start_expe_in_ctl.year,pi_Start_sel.values,pi_End_year.values
     Ctrl = ds_ctl[var.name].sel(time=slice(datetime.datetime(pi_Start_sel,1,1), datetime.datetime(pi_End_year,12,31)), drop=True)
     print "Ctrl shape select :",Ctrl.shape
-    Data = datasets[expe.key][var.name].sel(model=expe.model, member=expe.number)
+    Data = datasets[expe.name][var.name].sel(model=expe.model, member=expe.number)
     try : Data, Ctrl = xr.align(Data, Ctrl, join='left')
     except : 
         if ignore_data_not_found : return
         else : sys.exit("Ctrl read period does not encompass the experiment %s corresponding period in piControl"%expe.expid())
-    if var.name+'_anom' not in datasets[expe.key].variables:
-        datasets[expe.key][var.name+'_anom'] = xr.full_like(datasets[expe.key][var.name], fill_value=None)
-    datasets[expe.key][var.name+'_anom'].loc[dict(model=expe.model, member=expe.number)] = Data - Ctrl.mean(dim='time')
+    if var.name+'_anom' not in datasets[expe.name].variables:
+        datasets[expe.name][var.name+'_anom'] = xr.full_like(datasets[expe.name][var.name], fill_value=None)
+    datasets[expe.name][var.name+'_anom'].loc[dict(model=expe.model, member=expe.number)] = Data - Ctrl.mean(dim='time')
     
 
 def harmonizingCoords(ds):
@@ -250,20 +246,20 @@ def convert_climaf_dataset(datasets, var, exp, climaf_dico, operation, list_cdop
             xds = open_and_expand_dataset(climaf_interpret, {'model':[exp.model], 'member':np.array([exp.number])}, module, harmonizeCoords, var.varid())
             if verbose:
                 print('Loading data for expid::%s and for varid::%s'%(exp.expid(), var.varid()))
-            if exp.key in datasets:
+            if exp.name in datasets:
                 if module == 'xarray':
                     if keep_attrs:
-                        attrs = datasets[exp.key].attrs
-                    datasets[exp.key] = xr.merge([datasets[exp.key], xds])
+                        attrs = datasets[exp.name].attrs
+                    datasets[exp.name] = xr.merge([datasets[exp.name], xds])
                     if keep_attrs:
-                        datasets[exp.key].attrs = updated_attrs(attrs, xds, exp.expid())
+                        datasets[exp.name].attrs = updated_attrs(attrs, xds, exp.expid())
                 if module == 'iris':
                     import iris
-                    datasets[exp.key] = (datasets[exp.key] + xds).merge()
+                    datasets[exp.name] = (datasets[exp.name] + xds).merge()
             else:
-                datasets[exp.key] = xds
+                datasets[exp.name] = xds
                 if keep_attrs:
-                    datasets[exp.key].attrs = updated_attrs(datasets[exp.key].attrs, xds, exp.expid())
+                    datasets[exp.name].attrs = updated_attrs(datasets[exp.name].attrs, xds, exp.expid())
     else:
         print('Data not found for expid::%s and for varid::%s'%(exp.expid(), var.varid()))
 
