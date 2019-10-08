@@ -146,15 +146,18 @@ def harmonizingCoords(ds):
     '''
     Auxiliary function to standardize coordinate names
     '''
-    _levs = ['levels', 'level']
+    _levs = ['levels', 'level','pstd']
     _lats = ['latitude']
     _lons = ['longitude']
+    _time = ['time_counter']
     lev_ = 'plev'
     lat_ = 'lat'
     lon_ = 'lon'
+    tim_ = 'time'
     ds = renameCoords(ds, _levs, lev_)
     ds = renameCoords(ds, _lats, lat_)
     ds = renameCoords(ds, _lons, lon_)
+    ds = renameCoords(ds, _time, tim_)    
     return ds
 
 
