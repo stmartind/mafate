@@ -78,12 +78,24 @@ def get_time(dataset, time_dims=['time_counter', 'time'], attrs='year'):
     return data_x
 
 
+def addnyears(datasets, dictexpes):
+    '''
+    '''
+    for exp in list(dictexpes.values()):
+        ds_ = datasets[exp.name]
+        if 'n_years' not in list(ds_.coords):
+            ds_ = ds_.assign_coords(n_years = ('model', np.arange(len(ds_.model))))
+        ds_.n_years.loc[dict(model=exp.model)] = exp.yend - exp.ybeg + 1
+        datasets[exp.name] = ds_
+
+
 def compute_anom_from_control(datasets, dictexpes, dictvars, dimtim, computeAnom, ignore_data_not_found):
     '''
     '''
     for var in list(dictvars.values()):
         for exp in list(dictexpes.values()):
             compute_anom_from_control_varexpe(datasets, var, exp, dimtim, computeAnom, ignore_data_not_found)
+
 
 def compute_anom_from_control_varexpe_allperiod(datasets, var, expe, dimtim):
     '''
@@ -146,7 +158,7 @@ def harmonizingCoords(ds):
     '''
     Auxiliary function to standardize coordinate names
     '''
-    _levs = ['levels', 'level','pstd']
+    _levs = ['levels', 'level', 'pstd', 'lev']
     _lats = ['latitude']
     _lons = ['longitude']
     _time = ['time_counter']
@@ -183,20 +195,41 @@ def updated_attrs(attrs_org, ds_src, key_attrs, list_attrs=['branch_time_in_pare
     return attrs_new
 
 
-def open_and_expand_dataset(my_file, dict_add_dims, module, harmonizeCoords, var=None):
+def dropCoords(ds, lst_to_drop):
+    '''
+    '''
+    for coord_ in lst_to_drop:
+        if coord_ in ds.coords.keys():
+            ds = ds.drop(coord_)
+    return ds
+
+
+def dropVars(ds, lst_to_drop):
+    '''
+    '''
+    for var_ in lst_to_drop:
+        if var_ in list(ds.data_vars.keys()):
+            ds = ds.drop(var_)
+    return ds
+
+
+def open_and_expand_dataset(my_file, dict_add_dims, module, harmonizeCoords, dropList, var=None):
     '''
     Auxiliary function to extend the use of xarray function open_dataset
     Add new dimensions defined by dict_add_dims
     '''
     if module == 'xarray':
         xds = xr.open_dataset(my_file)
+        if dropList is not None:
+            xds = dropCoords(xds, dropList)
+            xds = dropVars(xds, dropList)
         if harmonizeCoords:
             xds = harmonizingCoords(xds)
     if module == 'iris':
         import iris
         xds = iris.load(my_file)
         xds[0].attributes = {}
-        xds[0].rename(var)
+        xds[0].rename(var.varid())
     for d in list(dict_add_dims.keys()):
         if module == 'xarray':
             xds = xds.expand_dims(d)
@@ -208,7 +241,7 @@ def open_and_expand_dataset(my_file, dict_add_dims, module, harmonizeCoords, var
     return xds
 
 
-def convert_climaf_dataset(datasets, var, exp, climaf_dico, operation, list_cdops, dir_target, module, writeFiles, harmonizeCoords, verbose, ignore_data_not_found, keep_attrs):
+def convert_climaf_dataset(datasets, var, exp, climaf_dico, operation, list_cdops, dir_target, module, writeFiles, suffFiles, harmonizeCoords, dropList, verbose, ignore_data_not_found, keep_attrs):
     '''
     Auxiliary function to convert a CliMAF dataset/object to :
         - either a target file
@@ -224,16 +257,19 @@ def convert_climaf_dataset(datasets, var, exp, climaf_dico, operation, list_cdop
                 print('Loading data from CliMAF dataset : ', climaf_ds)
         if writeFiles:
             if operation == cdogen:
-                suffix = '.nc'
                 if list_cdops is None:
-                    try : cfile(climaf_ds, target=dir_target+'/'+exp_id+'_'+var.varid()+suffix)
+                    target_file = dir_target+'/'+var.varid()+'_'+var.table+'_'+exp.period(norm=True)+'_'+exp_id+suffFiles
+                    try : cfile(climaf_ds, target=target_file)
                     except : 
                         print('CliMAF could not find the expected data, use explore fonction on the returned dictionary')
                         return climaf_dico
                 else:
-                    for cdop in list_cdops:
-                        suffix = '.' + cdop + suffix
-                    try : cfile(operation(climaf_ds, list_cdops), target=dir_target+'/'+exp_id+'_'+var.varid()+suffix)
+                    reftime = None
+                    substr = 'settaxis'
+                    if any(substr in s for s in list_cdops):
+                        reftime = int([s for s in list_cdops if substr in s][0][9:13])
+                    target_file = dir_target+'/'+var.varid()+'_'+var.table+'_'+exp.period(norm=True, reftime=reftime)+'_'+exp_id+suffFiles                    
+                    try : cfile(operation(climaf_ds, list_cdops), target=target_file)
                     except : 
                         print('CliMAF could not find the expected data, use explore fonction on the returned dictionary')
                         return climaf_dico
@@ -244,7 +280,7 @@ def convert_climaf_dataset(datasets, var, exp, climaf_dico, operation, list_cdop
             if operation == cdogen :
                climaf_ds = operation(climaf_ds, list_cdops)
             else :
-               climaf_ds = operation(climaf_dico)
+               climaf_ds = operation(climaf_ds)
             try : climaf_interpret = cfile(climaf_ds)
             except :
               if ignore_data_not_found :
@@ -253,7 +289,7 @@ def convert_climaf_dataset(datasets, var, exp, climaf_dico, operation, list_cdop
               else :
                   print('CliMAF could not find the expected data, use explore fonction on the returned dictionary')
                   return climaf_dico
-            xds = open_and_expand_dataset(climaf_interpret, {'model':[exp.model], 'member':np.array([exp.number])}, module, harmonizeCoords, var.varid())
+            xds = open_and_expand_dataset(climaf_interpret, {'model':[exp.model], 'member':np.array([exp.number])}, module, harmonizeCoords, dropList, var)
             if verbose:
                 print('Loading data for expid::%s and for varid::%s'%(exp.expid(), var.varid()))
             if exp.name in datasets:
@@ -274,8 +310,8 @@ def convert_climaf_dataset(datasets, var, exp, climaf_dico, operation, list_cdop
         print('Data not found for expid::%s and for varid::%s'%(exp.expid(), var.varid()))
 
 
-def load_datas(dictexpes, dictvars, operation=cdogen, list_cdops=None, dir_target='.', module='xarray', writeFiles=False, \
-        computeAnom=None, add_rnet=True, harmonizeCoords=False, verbose=False, ignore_data_not_found=False, keep_attrs=False, dimtim=['time','time_counter']):
+def load_datas(dictexpes, dictvars, operation=cdogen, list_cdops=None, dir_target='.', module='xarray', writeFiles=False, suffFiles='.nc', dropList=None, \
+        computeAnom=None, add_rnet=True, add_nyears=False, harmonizeCoords=False, verbose=False, ignore_data_not_found=False, keep_attrs=False, dimtim=['time','time_counter']):
     '''
     Get data from : 
     - a specific dict of Expe-s : dictexpes
@@ -297,13 +333,15 @@ def load_datas(dictexpes, dictvars, operation=cdogen, list_cdops=None, dir_targe
             m = exp.number
             dicof = dict(project=exp.project, variable=var.name, table=var.table, grid=var.grid, gridtype=var.grid, model=exp.model, experiment=exp.name, \
                     realization='r'+str(m)+exp.realization, member=m, period=exp.period(), **exp.adds)
-            dico = convert_climaf_dataset(my_datasets, var, exp, dicof, operation, list_cdops, dir_target, module, writeFiles, harmonizeCoords, verbose, ignore_data_not_found, keep_attrs)
+            dico = convert_climaf_dataset(my_datasets, var, exp, dicof, operation, list_cdops, dir_target, module, writeFiles, suffFiles, harmonizeCoords, dropList, verbose, ignore_data_not_found, keep_attrs)
             if dico is not None:
                 return dico
     if writeFiles:
         return
     if computeAnom is not None :
         compute_anom_from_control(my_datasets, dictexpes, dictvars, dimtim, computeAnom, ignore_data_not_found)
+    if add_nyears:
+        addnyears(my_datasets, dictexpes)
     if add_rnet:
         for e_ in list(my_datasets.keys()):
             ds_ = my_datasets[e_]

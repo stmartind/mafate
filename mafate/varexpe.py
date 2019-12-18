@@ -17,7 +17,7 @@ class Expe(object):
         self.linestyle = linestyle
         self.adds = adds
         self.number = number
-        self.realization=realization
+        self.realization = realization
         
     def __str__(self):
         xstr = '---------------------------------------------------'
@@ -29,11 +29,17 @@ class Expe(object):
         xstr += 'Period : %i - %i'%(self.ybeg, self.yend)
         return xstr
 
-    def period(self):
+    def period(self, norm=False, reftime=None):
+        if reftime is None:
+            reftime = self.ybeg
         if self.ybeg == 'fx':
             return 'fx'
         else:
-            return str(self.ybeg)+'-'+str(self.yend)
+            y1, y2 = reftime, reftime + self.yend - self.ybeg
+            if norm:
+                return str(y1).zfill(4)+'-'+str(y2).zfill(4)
+            else:
+                return str(y1)+'-'+str(y2)
 
     def expid(self):
         if self.is_Obs:
