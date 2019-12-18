@@ -1,4 +1,11 @@
-from climaf.api import *
+import os
+mafate_cache = './CACHE_MAFATE'
+os.system('mkdir -p '+mafate_cache)
+os.environ['CLIMAF_CACHE'] = mafate_cache
+
+at_CNRM = True
+verbose = True
+
 from mafate import *
 import numpy as np
 
@@ -58,9 +65,9 @@ dictvars.update(dict_var('tas', 'Amon'))
 
 # -- Load data with successive operations 'zonmean' and 'yearavg'
 datasets = {}
-datasets = load_datas(dictexps, dictvars, operation=cdogen, list_cdops=['zonmean', 'yearavg'], verbose=True)
+datasets = load_datas(dictexps, dictvars, operation=cdogen, list_cdops=['zonmean', 'yearavg'], verbose=verbose)
 
-#print(datasets['PRE621FRCRef1sw1'])
+print(datasets['PRE621FRCRef1sw1'])
 print('----------------------------------------------------------------------------------------------')
 
 
@@ -70,12 +77,14 @@ print('-------------------------------------------------------------------------
 
 # -- In the example above, data are organized following CMIP6's pattern and are localized in ./datas/CMIP6/etc
 
-dictexps = {}
-dictexps.update(dict_exp(Expe(project='CMIP6', model='CNRM-CM6-1', name='piClim-control', adds=dict(root='./datas'), ybeg=1850, yend=1851)))
-datasets = {}
-datasets = load_datas(dictexps, dictvars, operation=cdogen, list_cdops=['yearavg'], verbose=True)
+if at_CNRM:
+    dictexps = {}
+    dictexps.update(dict_exp(Expe(project='CMIP6', model='CNRM-CM6-1', name='piClim-control', adds=dict(root='./datas'), ybeg=1850, yend=1851)))
+    datasets = {}
+    datasets = load_datas(dictexps, dictvars, operation=cdogen, list_cdops=['yearavg'], verbose=verbose)
 
-#print(datasets['piClim-control'])
+    print(datasets['piClim-control'])
+
 print('----------------------------------------------------------------------------------------------')
 
 
@@ -86,30 +95,32 @@ print('-------------------------------------------------------------------------
 #   NB : CliMAF's project 'multiCMIP5' is among the additional CliMAF's project defined by mafate
 #       These additional project can be loaded via function define_climaf_projects()
 
-define_climaf_projects()
-
-dictexps = {}
-dictexps.update(dict_exp(Expe(project='CMIP6', model='CNRM-CM6-1', name='historical', number=1, ybeg=2000, yend=2004)))
-dictexps.update(dict_exp(Expe(project='CMIP6', model='CNRM-CM6-1', name='historical', number=3, ybeg=2000, yend=2004)))
-dictexps.update(dict_exp(Expe(project='multiCMIP5', model='CNRM-CM5', name='historical', number=1, ybeg=2000, yend=2004)))
-
-datasets = {}
-datasets = load_datas(dictexps, dictvars, operation=cdogen, list_cdops=['zonmean', 'yearavg'], verbose=True)
-
-print(datasets.keys())
-print(datasets['historical'])
-print('----------------------------------------------------------------------------------------------')
-
-
+if at_CNRM:
+    define_climaf_projects()
+    
+    dictexps = {}
+    dictexps.update(dict_exp(Expe(project='CMIP6', model='CNRM-CM6-1', name='historical', number=1, ybeg=2000, yend=2004)))
+    dictexps.update(dict_exp(Expe(project='CMIP6', model='CNRM-CM6-1', name='historical', number=3, ybeg=2000, yend=2004)))
+    dictexps.update(dict_exp(Expe(project='multiCMIP5', model='CNRM-CM5', name='historical', number=1, ybeg=2000, yend=2004)))
+    
+    datasets = {}
+    datasets = load_datas(dictexps, dictvars, operation=cdogen, list_cdops=['zonmean', 'yearavg'], verbose=verbose)
+    
+    print(datasets.keys())
+    print(datasets['historical'])
+    
+    print('----------------------------------------------------------------------------------------------')
+    
 # -- in this case, if you want to select a Dataset specific to an specific experiment
 #       - you could use function extract_from_exp(dict datasets, Expe my_expe)
-#       - or you could select directly model and member using xarray's function : sel        
-ds = extract_from_exp(datasets, dictexps['CNRM-CM6-1_historical_r3'])
-print(ds)
-print('----------------------------------------------------------------------------------------------')
+#       - or you could select directly model and member using xarray's function : sel
+    ds_ = extract_from_exp(datasets, dictexps['CNRM-CM6-1_historical_r3'])
+    print(ds_)
+    print('----------------------------------------------------------------------------------------------')
 
-ds = datasets['historical'].sel(model='CNRM-CM6-1', member=3)
-print(ds)
+    ds_ = datasets['historical'].sel(model='CNRM-CM6-1', member=3)
+    print(ds_)
+
 print('----------------------------------------------------------------------------------------------')
 
 
@@ -124,83 +135,91 @@ print('-------------------------------------------------------------------------
 #   -- dict_expes_historical_CNRMCM : CMIP-5 (CNRM-CM5) or CMIP-6 (CNRM-CM6) historical experiments
 #       - def dict_expes_historical_CNRMCM(model_name, n_member=10, ybeg=1850, yend=2014, yend_piControl=0):
 
-dictexps = {}
-dictexps.update(dict_expes_historical_CNRMCM('CNRM-CM5', n_member=10, ybeg=2005, yend=2005, yend_piControl=2349)) 
-dictexps.update(dict_expes_historical_CNRMCM('CNRM-CM6-1', n_member=10, ybeg=2010, yend=2014, yend_piControl=2349))
+if at_CNRM:
+    dictexps = {}
+    dictexps.update(dict_expes_historical_CNRMCM('CNRM-CM5', n_member=10, ybeg=2005, yend=2005, yend_piControl=2349)) 
+    dictexps.update(dict_expes_historical_CNRMCM('CNRM-CM6-1', n_member=10, ybeg=2010, yend=2014, yend_piControl=2349))
+    
+    datasets = {}
+    datasets = load_datas(dictexps, dictvars, operation=cdogen, list_cdops=['zonmean', 'yearavg'], verbose=verbose)
+    print(datasets['historical'])
 
-datasets = {}
-datasets = load_datas(dictexps, dictvars, operation=cdogen, list_cdops=['zonmean', 'yearavg'], verbose=True)
-print(datasets['historical'])
 print('----------------------------------------------------------------------------------------------')
 
 
 # -- Example to concatenate historical and historicalExt CMIP5 experiments
-import xarray as xr
-import numpy as np
-n_exps = 2
-dictexps = {}
-for k in range(n_exps):
-    dictexps.update(dict_exp(Expe(project='CMIP5', model='CNRM-CM5', name='historical', number=k+1, ybeg=1981, yend=2005)))
-    dictexps.update(dict_exp(Expe(project='CMIP5', model='CNRM-CM5', name='historicalExt', number=k+1, ybeg=2005, yend=2010)))
-ds_CM5 = load_datas(dictexps, dictvars, operation=cdogen, list_cdops=['zonmean', 'invertlev'], harmonizeCoords=True, verbose=True)
-ds_CM5['historical'] = xr.concat([ds_CM5['historical'], ds_CM5['historicalExt']], dim='time')
-ds_CM5.pop('historicalExt')
-print('> Size of dimension time = %s'%np.size(ds_CM5['historical']['time']))
+if at_CNRM:
+    import xarray as xr
+    import numpy as np
+    n_exps = 2
+    dictexps = {}
+    for k in range(n_exps):
+        dictexps.update(dict_exp(Expe(project='multiCMIP5', model='CNRM-CM5', name='historical', number=k+1, ybeg=1981, yend=2005)))
+        dictexps.update(dict_exp(Expe(project='multiCMIP5', model='CNRM-CM5', name='historicalExt', number=k+1, ybeg=2005, yend=2010)))
+        ds_CM5 = load_datas(dictexps, dictvars, operation=cdogen, list_cdops=['zonmean', 'invertlev'], harmonizeCoords=True, verbose=verbose)
+        ds_CM5['historical'] = xr.concat([ds_CM5['historical'], ds_CM5['historicalExt']], dim='time')
+        ds_CM5.pop('historicalExt')
+        print('> Size of dimension time = %s'%np.size(ds_CM5['historical']['time']))
+
 print('----------------------------------------------------------------------------------------------')
 
 
 # -- Example to compute AMOC in ssp245 experiment
-dictexps = {}
-dictexps.update(dict_exp(Expe(project='CMIP6', model='CNRM-CM6-1', name='ssp245', ybeg=2015, yend=2020, number=1)))
+if at_CNRM:
+    dictexps = {}
+    dictexps.update(dict_exp(Expe(project='CMIP6', model='CNRM-CM6-1', name='ssp245', ybeg=2015, yend=2020, number=1)))
+    
+    dictvars = {}
+    var='msftyz'
+    dictvars.update(dict_var(var, 'Omon', grid='gn'))
+    
+    amoc = lambda dico : amoc26(dico, ['yearavg'])
+    datasets = load_datas(dictexps, dictvars, operation=amoc, verbose=verbose, computeAnom='all', add_rnet=False)
 
-dictvars = {}
-var='msftyz'
-dictvars.update(dict_var(var, 'Omon', grid='gn'))
+    print(datasets)
+    print('Mean value of AMOC for period 2015-2020 in ssp245 : %s'%np.mean(datasets['ssp245']['msftyz'].values))
 
-amoc = lambda dico : amoc26(dico, ['yearavg'])
-datasets = load_datas(dictexps, dictvars, operation=amoc, verbose=True, computeAnom='all', add_rnet=False)
-
-print(datasets)
-print('Mean value of AMOC for period 2015-2020 in ssp245 : %s'%np.mean(datasets['ssp245']['msftyz'].values))
 print('----------------------------------------------------------------------------------------------')
 
 
 # -- Some examples of xarray Dataset manipulations
 #   - for more details, see : http://xarray.pydata.org/en/stable
 
-dictexps = {}
-dictexps.update(dict_exp(Expe(project='CMIP6', model='CNRM-CM6-1', name='historical', ybeg=2000, yend=2014, number=1)))
-dictexps.update(dict_exp(Expe(project='CMIP6', model='CNRM-CM6-1', name='historical', ybeg=2000, yend=2014, number=2)))
+if at_CNRM:
+    dictexps = {}
+    dictexps.update(dict_exp(Expe(project='CMIP6', model='CNRM-CM6-1', name='historical', ybeg=2000, yend=2014, number=1)))
+    dictexps.update(dict_exp(Expe(project='CMIP6', model='CNRM-CM6-1', name='historical', ybeg=2000, yend=2014, number=2)))
+    
+    dictvars = {}
+    dictvars.update(dict_var('tas', 'Amon'))
+    
+    datasets = {}
+    datasets = load_datas(dictexps, dictvars, operation=cdogen, list_cdops=None, verbose=verbose)
+    
+    ds_ = datasets['historical']
+    
+    # -- to compute DJF seasonal mean for all variables/members/models
+    #   - in this case, ds_ has a new coordinate 'season'
+    ds_g = ds_.groupby('time.season').mean(dim='time').sel(season='DJF')
+    print(ds_g)
+    print('----------------------------------------------------------------------------------------------')
+    
+    # -- to compute ensemble mean for a specific model
+    ds_s = ds_.sel(model='CNRM-CM6-1').mean(dim='member')
+    print(ds_s)
+    print('----------------------------------------------------------------------------------------------')
+    
+    # -- selection by index and/or selection by labels
+    arr = ds_.sel(member=1, model='CNRM-CM6-1').isel(lon=0, lat=0, time=np.arange(0,10))['tas'].values
+    print(arr)
+    print('----------------------------------------------------------------------------------------------')
+    
+    # -- add a variable in the dataset
+    ds_['tas_deg'] = ds_['tas'] - 273.15
+    print('max values : %s, %s'%(np.max(ds_['tas_deg'].values),np.max(ds_['tas'].values)))
 
-dictvars = {}
-dictvars.update(dict_var('tas', 'Amon'))
-
-datasets = {}
-datasets = load_datas(dictexps, dictvars, operation=cdogen, list_cdops=None, verbose=True)
-
-ds = datasets['historical']
-
-# -- to compute DJF seasonal mean for all variables/members/models
-#   - in this case, ds_ has a new coordinate 'season'
-ds_ = ds.groupby('time.season').mean(dim='time').sel(season='DJF')
-print(ds_)
 print('----------------------------------------------------------------------------------------------')
 
-# -- to compute ensemble mean for a specific model
-ds_ = ds.sel(model='CNRM-CM6-1').mean(dim='member')
-print(ds_)
-print('----------------------------------------------------------------------------------------------')
-
-# -- selection by index and/or selection by labels
-arr = ds.sel(member=1, model='CNRM-CM6-1').isel(lon=0, lat=0, time=np.arange(0,10))['tas'].values
-print(arr)
-print('----------------------------------------------------------------------------------------------')
-
-
-# -- add a variable in the dataset
-ds['tas_deg'] = ds['tas'] - 273.15
-print('max values : %s, %s'%(np.max(ds['tas_deg'].values),np.max(ds['tas'].values)))
-print('----------------------------------------------------------------------------------------------')
 
 # -- Some specific options in load_datas function
 #   - module = 'iris' : choose to build iris' object instead of xarray's Dataset
@@ -208,47 +227,73 @@ print('-------------------------------------------------------------------------
 #   - add_rnet = True : add 'rnet' variable in the dataset, computed as : rsdt - rsut - rlut
 #   - harmonizeCoords = True : rename typical coords (longitude, latitude, levels) in (lon, lat, plev)
 
-
-# -- Example to re-use CliMAF facilities (e.g. explore) by using toggle ignore_data_not_found (default : False)
-dictexps = {}
-dictexps.update(dict_exp(Expe(project='CMIP6', model='CNRM-CM6-1', name='piClim-control', adds=dict(root='./datas'), ybeg=1850, yend=1851)))
-dictexps.update(dict_exp(Expe(project='CMIP6', model='CNRM-CM6-1', name='piClim-4xCO2', adds=dict(root='./datas'), ybeg=1850, yend=1851)))
-
-datasets = {}
-datasets = load_datas(dictexps, dictvars, operation=cdogen, list_cdops=['yearavg'], ignore_data_not_found=True)
-# datasets is a dictionary of xarray's object and unkwown piClim-4xCO2 experiment is not present
-print('piClim-control' in datasets, 'piClim-4xCO2' in datasets)
-
-datasets = {}
-datasets = load_datas(dictexps, dictvars, operation=cdogen, list_cdops=['yearavg'])
-# datasets is a Python dictionary with CliMAF request for unkwown piClim-4xCO2 experiment
-print(datasets['experiment'])
+if at_CNRM:
+    # -- Example to re-use CliMAF facilities (e.g. explore) by using toggle ignore_data_not_found (default : False)
+    dictexps = {}
+    dictexps.update(dict_exp(Expe(project='CMIP6', model='CNRM-CM6-1', name='piClim-control', adds=dict(root='./datas'), ybeg=1850, yend=1851)))
+    dictexps.update(dict_exp(Expe(project='CMIP6', model='CNRM-CM6-1', name='piClim-4xCO2', adds=dict(root='./datas'), ybeg=1850, yend=1851)))
+    
+    datasets = {}
+    datasets = load_datas(dictexps, dictvars, operation=cdogen, list_cdops=['yearavg'], ignore_data_not_found=True)
+    # datasets is a dictionary of xarray's object and unkwown piClim-4xCO2 experiment is not present
+    print('piClim-control' in datasets, 'piClim-4xCO2' in datasets)
+    
+    datasets = {}
+    datasets = load_datas(dictexps, dictvars, operation=cdogen, list_cdops=['yearavg'])
+    # datasets is a Python dictionary with CliMAF request for unkwown piClim-4xCO2 experiment
+    print(datasets['experiment'])
 
 print('----------------------------------------------------------------------------------------------')
 
-# -- ??? Example to use specific period of piControl by using toggle keep_attrs (default : False)
 
-dictexps = {}
-eCTL = Expe(project='CMIP6', model='CNRM-CM6-1', name='piControl', ybeg=1850, yend=2349)
-dictexps.update(dict_exp(eCTL))
-dictexps.update(dict_exp(Expe(project='CMIP6', model='CNRM-CM6-1', name='historical', number=1, ybeg=2000, yend=2004, expe_control=eCTL)))
-dictexps.update(dict_exp(Expe(project='CMIP6', model='CNRM-CM6-1', name='historical', number=4, ybeg=2000, yend=2004, expe_control=eCTL)))
+# -- Example to use specific period of piControl by using toggle keep_attrs (default : False)
 
-datasets = {}
-datasets = load_datas(dictexps, dictvars, operation=cdogen, list_cdops=['fldmean', 'yearavg'], keep_attrs=True, computeAnom='respective')
+if at_CNRM:
 
-tas_hist1_2000 = datasets['historical']['tas'].sel(member=1).isel(model=0, time=0, lon=0, lat=0).values
-tas_piC_mean = datasets['piControl']['tas'].isel(member=0, model=0, time=np.arange(0, 499), lon=0, lat=0).mean(dim='time').values
-anom_tas_hist1_2000 = tas_hist1_2000 - tas_piC_mean
-tas_anom_hist1_2000 = datasets['historical']['tas_anom'].sel(member=1).isel(model=0, time=0, lon=0, lat=0).values
-print(tas_hist1_2000, tas_piC_mean, anom_tas_hist1_2000, tas_anom_hist1_2000)
+    dictexps = {}
+    eCTL = Expe(project='CMIP6', model='CNRM-CM6-1', name='piControl', ybeg=1850, yend=2349)
+    dictexps.update(dict_exp(eCTL))
+    dictexps.update(dict_exp(Expe(project='CMIP6', model='CNRM-CM6-1', name='historical', number=1, ybeg=2000, yend=2004, expe_control=eCTL)))
+    dictexps.update(dict_exp(Expe(project='CMIP6', model='CNRM-CM6-1', name='historical', number=4, ybeg=2000, yend=2004, expe_control=eCTL)))
+    
+    datasets = {}
+    datasets = load_datas(dictexps, dictvars, operation=cdogen, list_cdops=['fldmean', 'yearavg'], keep_attrs=True, computeAnom='respective')
+    
+    tas_hist1_2000 = datasets['historical']['tas'].sel(member=1).isel(model=0, time=0, lon=0, lat=0).values
+    tas_piC_mean = datasets['piControl']['tas'].isel(member=0, model=0, time=np.arange(0, 499), lon=0, lat=0).mean(dim='time').values
+    anom_tas_hist1_2000 = tas_hist1_2000 - tas_piC_mean
+    tas_anom_hist1_2000 = datasets['historical']['tas_anom'].sel(member=1).isel(model=0, time=0, lon=0, lat=0).values
+    print(tas_hist1_2000, tas_piC_mean, anom_tas_hist1_2000, tas_anom_hist1_2000)
+    
+    offset = 110 # hist_r4 (init date piControl : 19600101)
+    tas_hist4_2000 = datasets['historical']['tas'].sel(member=4).isel(model=0, time=0, lon=0, lat=0).values
+    tas_piC_mean = datasets['piControl']['tas'].isel(member=0, model=0, time=np.arange(offset+150, offset+155), lon=0, lat=0).mean(dim='time').values
+    anom_tas_hist4_2000 = tas_hist4_2000 - tas_piC_mean
+    tas_anom_hist4_2000 = datasets['historical']['tas_anom'].sel(member=4).isel(model=0, time=0, lon=0, lat=0).values
+    print(tas_hist4_2000, tas_piC_mean, anom_tas_hist4_2000, tas_anom_hist4_2000)
 
-offset = 110 # hist_r4 (init date piControl : 19600101)
-tas_hist4_2000 = datasets['historical']['tas'].sel(member=4).isel(model=0, time=0, lon=0, lat=0).values
-tas_piC_mean = datasets['piControl']['tas'].isel(member=0, model=0, time=np.arange(offset+150, offset+155), lon=0, lat=0).mean(dim='time').values
-anom_tas_hist4_2000 = tas_hist4_2000 - tas_piC_mean
-tas_anom_hist4_2000 = datasets['historical']['tas_anom'].sel(member=4).isel(model=0, time=0, lon=0, lat=0).values
-print(tas_hist4_2000, tas_piC_mean, anom_tas_hist4_2000, tas_anom_hist4_2000)
+print('----------------------------------------------------------------------------------------------')
+
+if at_CNRM:
+    # -- Example to use CliMAF's explore()
+    from climaf.api import *
+    
+    dictexps = dict_exp(Expe(project='CMIP6', model='CNRM-CM6-1', name='piControl', ybeg=1850, yend=1851))
+    
+    print('> Trying to load data...')    
+    datasets = load_datas(dictexps, dict_var('tos', 'Omon', grid='gr'), operation=cdogen, list_cdops=['fldmean'],  ignore_data_not_found=False)
+    
+    print('> Using CliMAF explore() facility...')
+    climaf_ds = ds(**datasets)
+    climaf_ds.explore()
+    # will say that climaf does not find the data
+    # now the game is to reduce the number of keys of the dictionnary datasets, to find the problematic attribute
+    # here it is easy, I know it...
+    
+    print('> re-Using CliMAF explore()')
+    datasets['grid']='*'
+    climaf_ds = ds(**datasets)
+    climaf_ds.explore()
 
 print('----------------------------------------------------------------------------------------------')
 

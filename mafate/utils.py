@@ -280,7 +280,7 @@ def convert_climaf_dataset(datasets, var, exp, climaf_dico, operation, list_cdop
             if operation == cdogen :
                climaf_ds = operation(climaf_ds, list_cdops)
             else :
-               climaf_ds = operation(climaf_ds)
+               climaf_ds = operation(climaf_dico)
             try : climaf_interpret = cfile(climaf_ds)
             except :
               if ignore_data_not_found :
