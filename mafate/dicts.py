@@ -9,6 +9,7 @@ def define_climaf_projects():
     '''
     name = 'multiCMIP5'
     root_dirs = []
+    root_dirs.append('/cnrm/cmip/cnrm/ESG/CMIP5/output*/*/${model}/${experiment}/*/*/${table}/${realization}/*/${variable}')    
     root_dirs.append('/cnrm/cmip/CMIP5/Atmos/Origin/*/${model}/${experiment}/mon/atmos/${realization}')
     file_patterns = []
     file_patterns.append('${variable}_${table}_${model}_${experiment}_r${member}i1p1_YYYYMM-YYYYMM.nc')
