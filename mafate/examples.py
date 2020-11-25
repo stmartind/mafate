@@ -3,7 +3,7 @@ mafate_cache = './CACHE_MAFATE'
 os.system('mkdir -p '+mafate_cache)
 os.environ['CLIMAF_CACHE'] = mafate_cache
 
-at_CNRM = True
+at_CNRM = False
 verbose = True
 
 from mafate import *
@@ -55,7 +55,6 @@ define_climaf_project(name, facets=my_facets, root_dirs=my_root_dirs, file_patte
 dictexps = {}
 dictexps.update(dict_exp(Expe(project='myDATA', model='CNRM-CM6-beta', name='PRE621FRCRef1sw1', ybeg=1979, yend=1980)))
 
-
 # -- To define a dict of Variable-s, use function dict_var
 #   -- return dict_vars[v.name] = v
 
@@ -77,16 +76,14 @@ print('-------------------------------------------------------------------------
 
 # -- In the example above, data are organized following CMIP6's pattern and are localized in ./datas/CMIP6/etc
 
-if at_CNRM:
-    dictexps = {}
-    dictexps.update(dict_exp(Expe(project='CMIP6', model='CNRM-CM6-1', name='piClim-control', adds=dict(root='./datas'), ybeg=1850, yend=1851)))
-    datasets = {}
-    datasets = load_datas(dictexps, dictvars, operation=cdogen, list_cdops=['yearavg'], verbose=verbose)
+dictexps = {}
+dictexps.update(dict_exp(Expe(project='CMIP6', model='CNRM-CM6-1', name='piClim-control', adds=dict(root='./datas'), ybeg=1850, yend=1851)))
+datasets = {}
+datasets = load_datas(dictexps, dictvars, operation=cdogen, list_cdops=['yearavg'], verbose=verbose)
 
-    print(datasets['piClim-control'])
+print(datasets['piClim-control'])
 
 print('----------------------------------------------------------------------------------------------')
-
 
 # -- datasets is a python dictionary of xarray's Datasets or iris' objects
 #   - datasets[expe.name] contains all the experiments (multi-model, multi-member, multi-variables) corresponding to the experiment expe
